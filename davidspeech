@@ -1,0 +1,106 @@
+import pyttsx3
+import speech_recognition as sr
+import datetime
+import wikipedia
+import webbrowser
+import os
+import requests
+import random
+
+# Initialize the speech recognition and text-to-speech engines
+engine = pyttsx3.init()
+rate = engine.getProperty('rate')
+engine.setProperty('rate', 150)
+voices = engine.getProperty('voices')
+engine.setProperty('voice', voices[1].id)  # You can choose voices[0] or voices[1]
+
+def speak(text):
+    engine.say(text)
+    engine.runAndWait()
+
+def listen():
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Listening...")
+        r.pause_threshold = 1
+        r.adjust_for_ambient_noise(source, duration=1.2)
+        audio = r.listen(source)
+    try:
+        print("Recognizing...")
+        command = r.recognize_google(audio, language='en-US')
+        print(f"User said: {command}\n")
+    except sr.UnknownValueError:
+        print("Sorry, I didn't catch that. Could you say it again?")
+        speak("Sorry, I didn't catch that. Could you say it again?")
+        return None
+    except sr.RequestError as e:
+        print(f"Could not request results; {e}")
+        speak("Sorry, I couldn't connect to the recognition service.")
+        return None
+    return command.lower()
+
+def greet_user():
+    hour = int(datetime.datetime.now().hour)
+    if hour < 12:
+        speak("Good morning!")
+    elif 12 <= hour < 18:
+        speak("Good afternoon!")
+    else:
+        speak("Good evening!")
+    speak("I am Voite, your personal assistant. How can I help you today?")
+
+def get_weather(city):
+    api_key = 'your_openweather_api_key'  # Use environment variables or a config file for keys
+    base_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    response = requests.get(base_url)
+    weather_data = response.json()
+    if weather_data["cod"] != "404":
+        main = weather_data["main"]
+        temperature = main["temp"]
+        weather_description = weather_data["weather"][0]["description"]
+        speak(f"The temperature in {city} is {temperature} degrees Celsius with {weather_description}.")
+    else:
+        speak("Sorry, I couldn't find the weather details for that location.")
+
+def take_command():
+    while True:
+        command = listen()
+        if command:
+            if 'open youtube' in command:
+                webbrowser.open("https://www.youtube.com")
+                speak("Opening YouTube.")
+            elif 'search wikipedia' in command:
+                speak("What should I search on Wikipedia?")
+                query = listen()
+                if query:
+                    results = wikipedia.summary(query, sentences=2)
+                    speak("According to Wikipedia")
+                    speak(results)
+            elif 'play music' in command:
+                music_dir = r'C:\Users\Davy\Desktop\music'
+                songs = os.listdir(music_dir)
+                if songs:
+                    song_path = os.path.join(music_dir, random.choice(songs))
+                    os.startfile(song_path)
+                    speak(f"Now playing: {song_path.split(os.path.sep)[-1]}")
+                else:
+                    speak("No music found in the directory.")
+            elif 'tell me the time' in command:
+                current_time = datetime.datetime.now().strftime("%H:%M")
+                speak(f"The time is {current_time}.")
+            elif 'weather' in command:
+                speak("Please tell me the city name.")
+                city = listen()
+                if city:
+                    get_weather(city)
+            elif 'news' in command:
+                get_news()
+            elif 'quit' in command or 'goodbye' in command:
+                speak("Goodbye!")
+                break
+            else:
+                speak("I am sorry, I don't know that command yet.")
+
+if __name__ == "__main__":
+    greet_user()
+    take_command()
